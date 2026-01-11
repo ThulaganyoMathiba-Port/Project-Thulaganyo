@@ -1,0 +1,189 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyNgTTG7S2Oc/nRf9KA/yayk",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/ThulaganyoMathiba-Port/Project-Thulaganyo/blob/main/This%20is%20my%20first%20beautifulsoup%20appliation\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "source": [
+        "import pandas as pd\n",
+        "import requests\n",
+        "from bs4 import BeautifulSoup\n",
+        "from requests.adapters import HTTPAdapter\n",
+        "from urllib3.util.retry import Retry\n",
+        "\n",
+        "#prompt user to input job title\n",
+        "name_of_job = input(\"Enter the name of the job that you seek for: \").strip()\n",
+        "search_term = name_of_job.lower().replace(' ' , '-')\n",
+        "#get link\n",
+        "url = f'https://www.careerjunction.co.za/jobs/{search_term}'\n",
+        "\n",
+        "print(f'Fetching results from: {url}')\n",
+        "\n",
+        "#retry setup\n",
+        "retry_strategy = Retry(total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504])\n",
+        "adapter = HTTPAdapter(max_retries=retry_strategy)\n",
+        "http = requests.Session()\n",
+        "http.mount(\"https://\", adapter)\n",
+        "http.mount(\"http://\", adapter)\n",
+        "\n",
+        "#make request\n",
+        "try:\n",
+        "   response= http.get(url, headers={'User-Agent' : 'Mozilla/5.0 (Winows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'} ,timeout=30)\n",
+        "   response.raise_for_status()\n",
+        "\n",
+        "   # Move the code that uses 'response' inside the try block\n",
+        "   soup = BeautifulSoup(response.content, 'html.parser')\n",
+        "\n",
+        "   #get the job cards\n",
+        "   title_of_job =soup.find_all('a', attrs={'jobid' : True})\n",
+        "   overviews = soup.find_all('ul', class_='job-overview')\n",
+        "\n",
+        "   print(f'found{len(title_of_job)} job titles and {len(overviews)} overviews')\n",
+        "   jobs_list = []\n",
+        "   for x in range(min(len(title_of_job), len(overviews))):\n",
+        "     # Check if the current job title element has an 'href' attribute\n",
+        "     if 'href' in title_of_job[x].attrs:\n",
+        "       title = title_of_job[x].text.strip()\n",
+        "       link = 'https://www.careerjunction.co.za' + title_of_job[x]['href']\n",
+        "       overview = overviews[x]\n",
+        "\n",
+        "       salary= overview.find('li' , class_='salary')\n",
+        "       position = overview.find('li' , class_= 'position')\n",
+        "       location = overview.find('li' , class_='location')\n",
+        "       posted = overview.find('li' , class_='updated-time')\n",
+        "\n",
+        "        #adding to list\n",
+        "       jobs_list.append({\n",
+        "         'Title' : title,\n",
+        "         'Recruiter' : 'N/A',\n",
+        "         'Salary' : salary.text.strip() if salary else 'N/A',\n",
+        "         'position' : position.text.strip() if position else 'N/A',\n",
+        "         'location' : location.text.strip() if location else 'N/A',\n",
+        "         'posted_date' : posted.text.strip() if posted else 'N/A'\n",
+        "       })\n",
+        "     else:\n",
+        "         # Optionally, print a message or log that a job title was skipped due to no href\n",
+        "         print(f\"Skipping a job title element because it has no 'href' attribute: {title_of_job[x]}\")\n",
+        "#creating the new dataframe for each result found\n",
+        "   data = pd.DataFrame(jobs_list)\n",
+        "   Filename = f'{search_term}_job-results.csv'\n",
+        "   data.to_csv(Filename, index= False)\n",
+        "   print(f'Successfully scraped {len(data)} jobs. Results saved to {Filename}')\n",
+        "   print ('\\nSample of scraped data: ')\n",
+        "   print(data.head())\n",
+        "\n",
+        "#This handles the errors\n",
+        "except requests.exceptions.RequestException as e:\n",
+        "   print(f'Error fetching data: {e}')\n",
+        "   exit()"
+      ],
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "vOcI9MvljEXe",
+        "outputId": "67e6209b-9990-413a-a919-a92c375bee16"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Enter the name of the job that you seek for: data scientist\n",
+            "Fetching results from: https://www.careerjunction.co.za/jobs/data-scientist\n",
+            "found75 job titles and 25 overviews\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2614409\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2612379\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2612440\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2612894\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2612859\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2613808\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2608556\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Skipping a job title element because it has no 'href' attribute: <a class=\"save-job\" jobid=\"2612158\" style=\"cursor: pointer; color: #cad466;\">\n",
+            "<i class=\"far fa-star\"></i>\n",
+            "                                        Save This Job\n",
+            "                                    </a>\n",
+            "Successfully scraped 17 jobs. Results saved to data-scientist_job-results.csv\n",
+            "\n",
+            "Sample of scraped data: \n",
+            "                                               Title Recruiter  \\\n",
+            "0                                     Data Scientist       N/A   \n",
+            "1                                          Show More       N/A   \n",
+            "2  Data Scientist - Credit Optimisation at The Fo...       N/A   \n",
+            "3                                          Show More       N/A   \n",
+            "4                                     Data Scientist       N/A   \n",
+            "\n",
+            "                        Salary                         position  \\\n",
+            "0  R33,300 - R37,500 per month  Permanent Intermediate position   \n",
+            "1  R37,500 - R45,000 per month  Permanent Intermediate position   \n",
+            "2                R Undisclosed        Permanent Junior position   \n",
+            "3  R33,300 - R41,700 per month  Permanent Intermediate position   \n",
+            "4  R48,300 - R50,000 per month  Permanent Intermediate position   \n",
+            "\n",
+            "        location         posted_date  \n",
+            "0  Durban Region  Posted 20 Jun 2025  \n",
+            "1  Durban Region  Posted 19 Jun 2025  \n",
+            "2      Cape Town  Posted 14 Jun 2025  \n",
+            "3  Durban Region  Posted 13 Jun 2025  \n",
+            "4   Kempton Park  Posted 29 May 2025  \n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "-mQbDI0IsJwE"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
